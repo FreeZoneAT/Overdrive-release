@@ -1122,7 +1122,32 @@ public final class BydDeviceHelper {
                     public void onPowerLevelChanged(int level) {
                         invokeCallback(callback, "onPowerLevelChanged", new Object[]{level});
                     }
+                    // Generic feature-ID channel. There is no typed callback for the fob
+                    // unlock-button event, so it arrives only here, and only when the listener
+                    // is registered through the 2-arg int[] overload.
+                    public void onDataEventChanged(int eventId, android.hardware.bydauto.BYDAutoEventValue value) {
+                        invokeCallback(callback, "onDataEventChanged", new Object[]{eventId, value});
+                    }
                 };
+
+            if (!com.overdrive.app.camera.dilink5.DiLink5Platform.isSelected()) {
+                // DiLink 3: same legacy-additive shape as the tyre listener — a subscribe-all
+                // 2-arg registration for the generic channel (where the fob unlock event
+                // arrives), plus the typed 1-arg registration for doors/windows/power. The
+                // DiLink 3 HAL ignores the id filter and delivers every bodywork event on the
+                // generic channel anyway, so an empty array states what actually happens; the
+                // collector drops everything but the fob id without touching the HAL.
+                return registerLegacyAdditive(
+                        device,
+                        listener,
+                        android.hardware.bydauto.bodywork.AbsBYDAutoBodyworkListener.class,
+                        new int[0],
+                        false,
+                        "Bodywork");
+            }
+
+            // DiLink 5: exactly one overload, unchanged. The fob unlock source is not available
+            // there; unlockSource/easyEntry simply never fire.
             Method register = findRegisterMethod(device.getClass(),
                 android.hardware.bydauto.bodywork.AbsBYDAutoBodyworkListener.class);
             if (register != null) {
@@ -1138,7 +1163,6 @@ public final class BydDeviceHelper {
         }
         return false;
     }
-
     public static boolean registerTyreListener(Object device, ListenerCallback callback) {
         if (device == null) return false;
         ensureRuntimeSdk();

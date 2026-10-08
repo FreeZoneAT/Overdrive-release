@@ -151,6 +151,29 @@ public class Conditions {
                         new Label("state", "automation.state"),
                         new Label("locked", "automation.locked"),
                         new Label("unlocked", "automation.unlocked"))));
+        // Unlock SOURCE as a trigger (on-change) and condition, same pattern as lock above.
+        // Only "fob" is published, from the BODYWORK_REMOTE_CONTROL_UNLOCK bodywork event
+        // (BydDataCollector#onFobUnlockEvent). Other sources are not offered until there is
+        // a signal for them: the NFC event also fires when locking with the card, and
+        // app/digital-key/keyless unlocks have no bodywork event at all.
+        addCondition(new EventCondition(
+                new Label("unlockSource", "automation.unlock_source"),
+                "automation.unlock_source_description",
+                new EnumType(
+                        new Label("state", "automation.state"),
+                        new Label("fob", "automation.unlock_source_fob"))));
+        // Easy-entry seat motion as a trigger (on-change) and condition, same pattern.
+        // "settled" only fires after the seat has actually moved and then held still.
+        // Armed ONLY by a fob-button unlock — an unlock with no door opened,
+        // or any non-fob unlock source, never arms this at all.
+        addCondition(new EventCondition(
+                new Label("easyEntry", "automation.easy_entry"),
+                "automation.easy_entry_description",
+                new EnumType(
+                        new Label("state", "automation.state"),
+                        new Label("idle", "automation.easy_entry_idle"),
+                        new Label("moving", "automation.easy_entry_moving"),
+                        new Label("settled", "automation.easy_entry_settled"))));
         // Energy-recuperation (regen) level as a trigger (on-change) and condition. The
         // state IS the word (standard/high/max) published by BydEvent from the SDK
         // getEnergyFeedback read, self-gated so it costs nothing unless a regen rule exists.

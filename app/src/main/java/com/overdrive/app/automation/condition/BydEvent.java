@@ -54,6 +54,20 @@ public class BydEvent {
     // source converges through) so a trigger can fire "when the car locks" and a
     // condition can gate "only while locked". NOT read from the dead BYDAutoDoorLockDevice.
     public static final EventData LOCK = new EventData("lock");
+    /**
+     * How the car was unlocked. The only value published is "fob", from the
+     * BODYWORK_REMOTE_CONTROL_UNLOCK bodywork event (see BydDataCollector#onFobUnlockEvent).
+     * NFC card, app and keyless unlocks have no unambiguous signal yet. The value holds
+     * "fob" from the last fob unlock; there is no reset on lock.
+     */
+    public static final EventData UNLOCK_SOURCE = new EventData("unlockSource");
+    /**
+     * Easy-entry seat motion: idle|moving|settled. Armed ONLY by a fob-button unlock
+     * (BydDataCollector#onFobUnlockEvent) — never reaches "settled" unless the seat
+     * actually moved first, so an unlock with no door open (nobody getting in) stays
+     * idle rather than firing early. See BydDataCollector#armEasyEntryPoll.
+     */
+    public static final EventData EASY_ENTRY = new EventData("easyEntry");
     // Energy-recuperation / regen-braking strength (standard/high/max), read locally via
     // BYDAutoSettingDevice.getEnergyFeedback (app-level 0/1/2) on the telemetry snapshot.
     // A trigger fires "when regen → max"; a condition gates "only if regen is standard".
