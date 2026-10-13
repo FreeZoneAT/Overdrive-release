@@ -98,23 +98,16 @@ func (e *exposeServer) serve(ln net.Listener) {
 	e.wg.Add(1)
 	e.mu.Unlock()
 	defer e.wg.Done()
-	for {
-		c, err := ln.Accept()
-		if err != nil {
-			if !errors.Is(err, net.ErrClosed) {
-				log.Printf("expose %d: %v", e.spec.Port, err)
-			}
-			return
-		}
+	_ = acceptLoop(ln, "expose "+strconv.Itoa(int(e.spec.Port)), nil, e.isClosed, func(c net.Conn) {
 		select {
 		case e.sem <- struct{}{}:
 		default:
 			c.Close()
-			continue
+			return
 		}
 		if !e.track(c) {
 			<-e.sem
-			continue
+			return
 		}
 		e.wg.Add(1)
 		go func() {
@@ -122,7 +115,13 @@ func (e *exposeServer) serve(ln net.Listener) {
 			defer func() { <-e.sem }()
 			e.handle(c)
 		}()
-	}
+	})
+}
+
+func (e *exposeServer) isClosed() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.closed
 }
 
 func (e *exposeServer) track(c net.Conn) bool {

@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -127,6 +128,8 @@ type runner struct {
 	expose      []exposeSpec
 	configStamp fileStamp
 
+	socks atomic.Pointer[socksServer]
+
 	tnet *netstack.Net
 	dev  *device.Device
 
@@ -212,6 +215,7 @@ func (r *runner) run(socksAddr string) error {
 	}
 	defer ln.Close()
 	srv := &socksServer{dial: r.dial}
+	r.socks.Store(srv)
 	go func() {
 		if err := srv.serve(ln); err != nil {
 			log.Printf("socks: %v", err)
@@ -531,6 +535,9 @@ type status struct {
 	Routes    []string   `json:"routes"`
 	Expose    []int      `json:"expose,omitempty"`
 	Peers     []peerStat `json:"peers"`
+
+	SocksActive       int64  `json:"socks_active"`
+	SocksAcceptErrors uint64 `json:"socks_accept_errors"`
 }
 
 func (r *runner) writeStatus(state, errMsg string) {
@@ -578,6 +585,10 @@ func (r *runner) writeStatusFull(state, errMsg string, st peerStats) {
 	}
 	if s.Peers == nil {
 		s.Peers = []peerStat{}
+	}
+	if srv := r.socks.Load(); srv != nil {
+		s.SocksActive = srv.active.Load()
+		s.SocksAcceptErrors = srv.acceptErrors.Load()
 	}
 	b, _ := json.Marshal(s)
 	tmp := r.statusPath + ".tmp"
