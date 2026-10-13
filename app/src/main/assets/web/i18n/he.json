@@ -65,7 +65,8 @@
     "key_mapping": "מיפוי מקשים",
     "network": "רשת",
     "communicate": "תקשורת",
-    "parking": "חניה"
+    "parking": "חניה",
+    "remote_dev_view": "תצוגת מפתח מרחוק"
   },
   "parking": {
     "page_title": "חניה",
