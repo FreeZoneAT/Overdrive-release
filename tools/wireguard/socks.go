@@ -48,9 +48,11 @@ type dialFunc func(ctx context.Context, host string, port uint16) (net.Conn, err
 
 type socksServer struct {
 	dial dialFunc
+	max  int64 // concurrent connection cap, 0 = unlimited
 
 	active       atomic.Int64  // currently open SOCKS connections
 	acceptErrors atomic.Uint64 // accept failures survived so far
+	rejected     atomic.Uint64 // connections closed because the cap was reached
 }
 
 const (
@@ -106,7 +108,29 @@ func acceptLoop(ln net.Listener, name string, count *atomic.Uint64, stopped func
 }
 
 func (s *socksServer) serve(ln net.Listener) error {
+	var (
+		lastLog    time.Time
+		suppressed int
+	)
 	return acceptLoop(ln, "socks", &s.acceptErrors, nil, func(c net.Conn) {
+		// The accept-loop fix only survives EMFILE; the cap keeps the daemon
+		// away from the fd limit in the first place (a direct SOCKS session
+		// costs two fds, a tunnel session one).
+		if s.max > 0 && s.active.Load() >= s.max {
+			_ = c.Close()
+			s.rejected.Add(1)
+			if time.Since(lastLog) >= acceptLogEvery {
+				if suppressed > 0 {
+					log.Printf("socks: connection limit %d reached, closing new connections (%d similar suppressed)", s.max, suppressed)
+				} else {
+					log.Printf("socks: connection limit %d reached, closing new connections", s.max)
+				}
+				lastLog, suppressed = time.Now(), 0
+			} else {
+				suppressed++
+			}
+			return
+		}
 		s.active.Add(1)
 		go func() {
 			defer s.active.Add(-1)

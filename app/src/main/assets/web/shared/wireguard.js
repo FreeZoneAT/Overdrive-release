@@ -103,6 +103,9 @@ var WG = {
         if (configured && routes.length) {
             lines.push(this.T('wireguard.detail_routes', 'Routes: {value}', { value: routes.join(', ') }));
         }
+        if (running && status && status.proxy_enabled === false) {
+            lines.push(this.T('wireguard.detail_proxy_off', 'App traffic is not routed through the tunnel (proxy flag off)'));
+        }
 
         dot.className = 'conn-dot ' + cls;
         state.textContent = text;

@@ -92,6 +92,103 @@ func TestServeSurvivesAcceptError(t *testing.T) {
 	}
 }
 
+func socksHandshake(t *testing.T, cli net.Conn) {
+	t.Helper()
+	_ = cli.SetDeadline(time.Now().Add(5 * time.Second))
+	if _, err := cli.Write([]byte{5, 1, 0}); err != nil {
+		t.Fatal(err)
+	}
+	var rep [2]byte
+	if _, err := readFull(cli, rep[:]); err != nil || rep[1] != 0 {
+		t.Fatalf("method reply %v err %v", rep, err)
+	}
+	if _, err := cli.Write([]byte{5, 1, 0, 1, 10, 0, 0, 1, 0, 80}); err != nil {
+		t.Fatal(err)
+	}
+	var resp [10]byte
+	if _, err := readFull(cli, resp[:]); err != nil || resp[1] != 0 {
+		t.Fatalf("connect reply %v err %v", resp, err)
+	}
+}
+
+func TestServeRejectsOverLimit(t *testing.T) {
+	ln := &flakyListener{conns: make(chan net.Conn, 2)}
+	target, targetPeer := net.Pipe()
+	defer targetPeer.Close()
+	srv := &socksServer{max: 1, dial: func(ctx context.Context, host string, port uint16) (net.Conn, error) {
+		return target, nil
+	}}
+	done := make(chan error, 1)
+	go func() { done <- srv.serve(ln) }()
+
+	cli1, srv1 := net.Pipe()
+	defer cli1.Close()
+	ln.conns <- srv1
+	socksHandshake(t, cli1)
+
+	cli2, srv2 := net.Pipe()
+	defer cli2.Close()
+	ln.conns <- srv2
+	_ = cli2.SetReadDeadline(time.Now().Add(5 * time.Second))
+	var b [1]byte
+	if n, err := cli2.Read(b[:]); err == nil || n != 0 {
+		t.Fatalf("rejected conn got n=%d err=%v, want closed without reply", n, err)
+	}
+	if got := srv.rejected.Load(); got != 1 {
+		t.Errorf("rejected = %d, want 1", got)
+	}
+	if got := srv.active.Load(); got != 1 {
+		t.Errorf("active = %d, want 1", got)
+	}
+
+	cli1.Close()
+	close(ln.conns)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("serve returned %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("serve did not stop after the listener closed")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for srv.active.Load() != 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := srv.active.Load(); got != 0 {
+		t.Errorf("active after close = %d, want 0", got)
+	}
+}
+
+func TestServeUnlimitedRejectsNothing(t *testing.T) {
+	ln := &flakyListener{conns: make(chan net.Conn, 3)}
+	srv := &socksServer{max: 0, dial: func(ctx context.Context, host string, port uint16) (net.Conn, error) {
+		c, _ := net.Pipe()
+		return c, nil
+	}}
+	done := make(chan error, 1)
+	go func() { done <- srv.serve(ln) }()
+
+	var clients []net.Conn
+	for i := 0; i < 3; i++ {
+		cli, s := net.Pipe()
+		clients = append(clients, cli)
+		ln.conns <- s
+		socksHandshake(t, cli)
+	}
+	if got := srv.rejected.Load(); got != 0 {
+		t.Errorf("rejected = %d, want 0", got)
+	}
+	if got := srv.active.Load(); got != 3 {
+		t.Errorf("active = %d, want 3", got)
+	}
+	for _, c := range clients {
+		c.Close()
+	}
+	close(ln.conns)
+	<-done
+}
+
 func readFull(c net.Conn, b []byte) (int, error) {
 	n := 0
 	for n < len(b) {
