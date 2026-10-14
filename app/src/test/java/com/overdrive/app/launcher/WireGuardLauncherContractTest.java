@@ -44,6 +44,7 @@ public class WireGuardLauncherContractTest {
         assertTrue(command.contains(WireGuardPaths.BINARY + " -config " + WireGuardPaths.CONFIG));
         assertTrue(command.contains("-socks 127.0.0.1:8541"));
         assertTrue(command.contains("-status " + WireGuardPaths.STATUS));
+        assertTrue(command.contains("-proxy-flag " + WireGuardPaths.PROXY_FLAG));
         assertTrue(command.contains("[ $? -eq 3 ] || break; done'"));
         assertTrue(command.endsWith("> " + WireGuardPaths.LOG + " 2>&1 &"));
         assertFalse(command.contains("-upstream"));

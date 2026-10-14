@@ -4200,6 +4200,7 @@
     "handshake_hours": "לחיצת יד אחרונה לפני {n} שע׳",
     "detail_address": "כתובת המנהרה: {value}",
     "detail_routes": "נתיבים: {value}",
+    "detail_proxy_off": "תעבורת האפליקציה אינה מנותבת דרך המנהרה (דגל ה־Proxy כבוי)",
     "card_title": "תצורת המנהרה",
     "intro": "מחבר את הרכב לרשת הביתית שלך דרך WireGuard. כתובות ב-AllowedIPs (למשל ה-broker של Home Assistant) מושגות דרך המנהרה; כל השאר ממשיך בנתיב הרגיל. העלה או הדבק את תצורת ה-peer (הלקוח) שהנתב שלך ייצא, למשל מ-OPNsense, Fritz!Box או wg-easy.",
     "choose_file": "בחר קובץ .conf",

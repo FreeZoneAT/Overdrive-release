@@ -17,6 +17,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/netip"
@@ -53,6 +54,8 @@ func main() {
 			}
 			return err
 		})
+	socksMax := flag.Int("socks-max", 256, "maximum concurrently open SOCKS connections, 0 = unlimited")
+	proxyFlag := flag.String("proxy-flag", "", "optional path of the app's proxy_enabled flag file; its value is reported in the status as proxy_enabled")
 	check := flag.Bool("check", false, "validate the config, print a JSON summary and exit")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
@@ -100,6 +103,8 @@ func main() {
 	r := newRunner(cfg, newSystemResolver(splitList(*bootstrap)), *statusPath)
 	r.configPath = *configPath
 	r.upstream = *upstream
+	r.socksMax = int64(*socksMax)
+	r.proxyFlagPath = *proxyFlag
 	r.expose = exposes
 	err = r.run(*socksAddr)
 	switch {
@@ -120,13 +125,15 @@ const exitReload = 3
 var errReload = errors.New("config changed")
 
 type runner struct {
-	cfg         *Config
-	sys         *net.Resolver
-	statusPath  string
-	configPath  string
-	upstream    string
-	expose      []exposeSpec
-	configStamp fileStamp
+	cfg           *Config
+	sys           *net.Resolver
+	statusPath    string
+	configPath    string
+	upstream      string
+	socksMax      int64
+	proxyFlagPath string
+	expose        []exposeSpec
+	configStamp   fileStamp
 
 	socks atomic.Pointer[socksServer]
 
@@ -214,7 +221,7 @@ func (r *runner) run(socksAddr string) error {
 		return fmt.Errorf("socks listen: %w", err)
 	}
 	defer ln.Close()
-	srv := &socksServer{dial: r.dial}
+	srv := &socksServer{dial: r.dial, max: r.socksMax}
 	r.socks.Store(srv)
 	go func() {
 		if err := srv.serve(ln); err != nil {
@@ -538,6 +545,12 @@ type status struct {
 
 	SocksActive       int64  `json:"socks_active"`
 	SocksAcceptErrors uint64 `json:"socks_accept_errors"`
+	SocksMax          int64  `json:"socks_max"`
+	SocksRejected     uint64 `json:"socks_rejected"`
+
+	// ProxyEnabled mirrors the app's proxy_enabled flag file; omitted when
+	// no flag path is configured or the file cannot be read.
+	ProxyEnabled *bool `json:"proxy_enabled,omitempty"`
 }
 
 func (r *runner) writeStatus(state, errMsg string) {
@@ -589,12 +602,36 @@ func (r *runner) writeStatusFull(state, errMsg string, st peerStats) {
 	if srv := r.socks.Load(); srv != nil {
 		s.SocksActive = srv.active.Load()
 		s.SocksAcceptErrors = srv.acceptErrors.Load()
+		s.SocksMax = srv.max
+		s.SocksRejected = srv.rejected.Load()
+	}
+	if r.proxyFlagPath != "" {
+		if v, ok := readBoolFlag(r.proxyFlagPath); ok {
+			s.ProxyEnabled = &v
+		}
 	}
 	b, _ := json.Marshal(s)
 	tmp := r.statusPath + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o644); err == nil {
 		_ = os.Rename(tmp, r.statusPath)
 	}
+}
+
+// readBoolFlag reads a small flag file. "true" (any case) and "1" are true,
+// any other readable content is false; ok is false if the file cannot be read.
+func readBoolFlag(path string) (value bool, ok bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, false
+	}
+	defer f.Close()
+	buf := make([]byte, 64)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return false, false
+	}
+	v := strings.TrimSpace(string(buf[:n]))
+	return strings.EqualFold(v, "true") || v == "1", true
 }
 
 func writeErrorStatus(path, msg string) {

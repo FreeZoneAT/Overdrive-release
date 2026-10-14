@@ -4205,6 +4205,7 @@
     "handshake_hours": "Last handshake {n}h ago",
     "detail_address": "Tunnel address: {value}",
     "detail_routes": "Routes: {value}",
+    "detail_proxy_off": "App traffic is not routed through the tunnel (proxy flag off)",
     "card_title": "Tunnel configuration",
     "intro": "Connects the car to your home network through WireGuard. Addresses in AllowedIPs (for example your Home Assistant broker) are reached through the tunnel; everything else keeps its normal route. Upload or paste the peer (client) config your router exported, for example from OPNsense, Fritz!Box or wg-easy.",
     "choose_file": "Choose .conf file",
