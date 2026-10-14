@@ -4627,3 +4627,30 @@ select.md-input ~ .md-label {
     font-weight: 600;
     margin-top: 4px;
 }
+
+/* === RTL: mirror directional chevrons / flow arrows ===
+   Right-pointing "open / next" chevrons and "start → end" range arrows
+   point the reading direction, so flip them in RTL. Physical-direction
+   arrows (steering, turn signals, camera sides) are intentionally untouched. */
+[dir="rtl"] .credit-chev,
+[dir="rtl"] .tier-chev,
+[dir="rtl"] .session-chevron,
+[dir="rtl"] .ch-range-arrow,
+[dir="rtl"] .trip-range-arrow,
+[dir="rtl"] .rtl-flip-arrow {
+    display: inline-block;
+    transform: scaleX(-1);
+}
+
+/* === RTL: toggle switch knob ===
+   Mirror the knob so OFF sits at the right and ON slides left, and use
+   logical-safe overrides (left:auto + right) so any page-level "right"
+   rule combined with the LTR translateX(20px) can't push the knob out of
+   the track. */
+[dir="rtl"] .toggle-slider::before {
+    left: auto;
+    right: 3px;
+}
+[dir="rtl"] .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(-20px);
+}
