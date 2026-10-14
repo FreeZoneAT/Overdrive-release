@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -47,19 +48,71 @@ type dialFunc func(ctx context.Context, host string, port uint16) (net.Conn, err
 
 type socksServer struct {
 	dial dialFunc
+
+	active       atomic.Int64  // currently open SOCKS connections
+	acceptErrors atomic.Uint64 // accept failures survived so far
 }
 
-func (s *socksServer) serve(ln net.Listener) error {
+const (
+	acceptBackoffMin = 5 * time.Millisecond
+	acceptBackoffMax = time.Second
+	acceptLogEvery   = 10 * time.Second
+)
+
+// acceptLoop calls accept until the listener is closed. An accept error is
+// never fatal: EMFILE, ENFILE, ECONNABORTED and similar conditions pass, and
+// ending the loop would leave the listener open with nobody accepting, so
+// every later connect would hang in the kernel backlog. Errors are retried
+// with a doubling delay (5 ms up to 1 s) and logged at a limited rate.
+// count, if not nil, is incremented per failed accept. stopped, if not nil,
+// reports that the owner is shutting down: listeners that are not plain
+// net listeners (the netstack one) do not return net.ErrClosed when closed.
+func acceptLoop(ln net.Listener, name string, count *atomic.Uint64, stopped func() bool, handle func(net.Conn)) error {
+	var (
+		delay      time.Duration
+		lastLog    time.Time
+		suppressed int
+	)
 	for {
 		c, err := ln.Accept()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
+			if errors.Is(err, net.ErrClosed) || (stopped != nil && stopped()) {
 				return nil
 			}
-			return err
+			if count != nil {
+				count.Add(1)
+			}
+			if time.Since(lastLog) >= acceptLogEvery {
+				if suppressed > 0 {
+					log.Printf("%s: accept: %v (%d similar errors suppressed)", name, err, suppressed)
+				} else {
+					log.Printf("%s: accept: %v", name, err)
+				}
+				lastLog, suppressed = time.Now(), 0
+			} else {
+				suppressed++
+			}
+			if delay == 0 {
+				delay = acceptBackoffMin
+			} else if delay *= 2; delay > acceptBackoffMax {
+				delay = acceptBackoffMax
+			}
+			time.Sleep(delay)
+			continue
 		}
-		go s.handle(c)
+		delay = 0
+		handle(c)
 	}
+}
+
+func (s *socksServer) serve(ln net.Listener) error {
+	return acceptLoop(ln, "socks", &s.acceptErrors, nil, func(c net.Conn) {
+		s.active.Add(1)
+		go func() {
+			defer s.active.Add(-1)
+			s.handle(c)
+		}()
+	})
 }
 
 func (s *socksServer) handle(c net.Conn) {
@@ -200,17 +253,51 @@ func errToReply(err error) byte {
 	return repGeneralFailure
 }
 
+// pipeIdle bounds how long the second direction of a pipe may stay silent
+// once the first one has finished. Without it a peer that vanished after
+// half-closing would keep both sockets and both goroutines forever.
+var pipeIdle = exposeIdle
+
+// pipe copies in both directions until both are done, then closes both
+// connections. A finished direction half-closes its destination when
+// possible. A write error means the destination is gone, so both conns are
+// closed at once to unblock the other direction.
 func pipe(a, b net.Conn) {
-	var wg sync.WaitGroup
+	defer a.Close()
+	defer b.Close()
+	var (
+		wg         sync.WaitGroup
+		halfClosed atomic.Bool
+	)
 	wg.Add(2)
 	cp := func(dst, src net.Conn) {
 		defer wg.Done()
-		_, _ = io.Copy(dst, src)
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := src.Read(buf)
+			if n > 0 {
+				if _, werr := dst.Write(buf[:n]); werr != nil {
+					_ = a.Close()
+					_ = b.Close()
+					return
+				}
+			}
+			if err != nil {
+				break
+			}
+			if halfClosed.Load() {
+				_ = src.SetReadDeadline(time.Now().Add(pipeIdle))
+			}
+		}
 		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
 			_ = cw.CloseWrite()
 		} else {
 			_ = dst.Close()
+			_ = src.Close()
 		}
+		// Reads of the opposite direction are on dst; start its idle clock.
+		halfClosed.Store(true)
+		_ = dst.SetReadDeadline(time.Now().Add(pipeIdle))
 	}
 	go cp(a, b)
 	go cp(b, a)
