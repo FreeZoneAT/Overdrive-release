@@ -107,7 +107,7 @@
     <string name="camera_option_5">מצלמה 5</string>
     <string name="camera_selection_hint">\'אוטומטי\' בוחר את המצלמה הנכונה לרמת הגימור שלך בכל הפעלה. מצלמה 1 = BYD Seal, מצלמה 0 = רמות גימור של Atto. הפעל מחדש את תהליך הרקע לאחר שינוי מזהה המצלמה כדי שההגדרה תיכנס לתוקף.</string>
     <string name="camera_oem_dashcam_title">מזהה מצלמת דרך מקורית (OEM)</string>
-    <string name="camera_oem_dashcam_hint">בחר את מזהה ה-AVMCamera המפנה לחיישן מצלמת הדרך הקדמית. מצלמת הדרך היא הפוכה מהפנורמית: ב-Seal/Han פנורמית = 1 -> מצלמת דרך = 0; ב-Atto / Tang פנורמית = 0 -> מצלמת דרך = 1. השאר על \'אוטומטי\' כדי לאפשר ל-OverDrive לבחור לבד.</string>
+    <string name="camera_oem_dashcam_hint">בחר את מזהה ה-AVMCamera המפנה לחיישן מצלמת הדרך הקדמית. מצלמת הדרך היא הפוכה מהפנורמית: ב-Seal/Han פנורמית = 1 ← מצלמת דרך = 0; ב-Atto / Tang פנורמית = 0 ← מצלמת דרך = 1. השאר על \'אוטומטי\' כדי לאפשר ל-OverDrive לבחור לבד.</string>
     <string name="camera_oem_dashcam_auto_resolved">אוטומטי — משתמש במזהה %1$d (פנורמית היא מזהה %2$d)</string>
     <string name="camera_oem_dashcam_auto_unavailable">אוטומטי — מזהה הפנורמית הוא %1$d, לא ניתן להסיק את מצלמת הדרך</string>
     <string name="camera_oem_dashcam_save">שמור</string>
@@ -789,7 +789,7 @@
     <string name="settings_backup_restore_confirm_title">לשחזר הגדרות?</string>
     <string name="settings_backup_restore_confirm_msg">פעולה זו תחליף את הגדרות Overdrive הנוכחיות באלו שבגיבוי ותטען מחדש את השירותים. שחזור זה אפשרי רק באותו מסך רכב שבו נוצר הגיבוי.</string>
     <string name="settings_backup_restore_confirm_btn">שחזר</string>
-    <string name="settings_backup_restart_hint">ההגדרות שוחזרו. הפעל מחדש את תהליך המצלמה (תהליכי רקע -> מצלמה -> הפעלה מחדש) כדי לוודא שכל הגדרה ששוחזרה אכן מוחלת.</string>
+    <string name="settings_backup_restart_hint">ההגדרות שוחזרו. הפעל מחדש את תהליך המצלמה (תהליכי רקע ← מצלמה ← הפעלה מחדש) כדי לוודא שכל הגדרה ששוחזרה אכן מוחלת.</string>
     <string name="settings_backup_trips_prompt">לכלול את היסטוריית הנסיעות (מרחק, אנרגיה, עלות, ציוני נהיגה, מיקומי התחלה/סיום)? נתוני טלמטריה מפורטים של כל נסיעה אינם נכללים. הקובץ יכיל היסטוריית מיקומים — שמור עליו מאובטח.</string>
     <string name="settings_backup_settings_only">הגדרות בלבד</string>
     <string name="settings_backup_with_trips">כולל נסיעות</string>
@@ -1392,7 +1392,7 @@
     <string name="network_warn_body">במסך הרכב קיים רכיב אלחוטי יחיד, ולכן הוא אינו יכול לשמש כנקודה חמה ולהישאר מחובר לרשת Wi-Fi בו-זמנית. כאשר הנקודה החמה מופעלת, הרכב מתנתק מה-Wi-Fi ומשתמש בנתונים הסלולריים של כרטיס ה-SIM המובנה עבורו ועבור כל המכשירים המחוברים. חיבור ה-Wi-Fi ישוב לפעול עם כיבוי הנקודה החמה.</string>
     <string name="network_warn_continue">הפעל נקודה חמה</string>
     <string name="network_warn_cancel">ביטול</string>
-    <!-- Closed-repository features added after the upstream Hebrew pass. -->
+    <!-- Closed-repository features added after the upstream Hebrew pass. -←
     <string name="action_create_evidence_pack">יצירת חבילת ראיות</string>
     <string name="action_share_evidence_pack">שיתוף חבילת ראיות</string>
     <string name="tailscale_enable_https">הצגת ממשק האינטרנט דרך HTTPS</string>

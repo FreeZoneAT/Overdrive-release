@@ -2238,7 +2238,7 @@ const TRIPS = {
         let fuelStr = '';
         if (fuelStart >= 0 && fuelEnd >= 0) {
             fuelStr = '<span class="trip-capsule" style="color:var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22h13M5 22V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14"/><path d="M15 6V4a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v10a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V8.5"/></svg> '
-                + fuelStart.toFixed(2) + '→' + fuelEnd.toFixed(2) + '%</span>';
+                + fuelStart.toFixed(2) + '<span class="rtl-flip-arrow">→</span>' + fuelEnd.toFixed(2) + '%</span>';
         }
 
         // Energy capsule: real kWh > SoC-per-km efficiency. Dropped when
@@ -2256,7 +2256,7 @@ const TRIPS = {
         // has an end SoC — "55.00→0.00%" would show a phantom full drain, and
         // recovered rows would read "0.00→0.00%".
         const socCapsule = this.hasSocPair(trip)
-            ? '<span class="trip-capsule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="7" width="12" height="10" rx="1"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/></svg> ' + socStart + '→' + socEnd + '%</span>'
+            ? '<span class="trip-capsule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="7" width="12" height="10" rx="1"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/></svg> ' + socStart + '<span class="rtl-flip-arrow">→</span>' + socEnd + '%</span>'
             : '';
         // Odometer capsule: absolute start→end readings (unit-aware). Gated on
         // both being present (>0) — recovered trips and HALs that don't report
@@ -2265,7 +2265,7 @@ const TRIPS = {
         const odoStart = trip.odometerStartKm || trip.odometer_start_km || 0;
         const odoEnd = trip.odometerEndKm || trip.odometer_end_km || 0;
         const odoCapsule = (odoStart > 0 && odoEnd > 0)
-            ? '<span class="trip-capsule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 14l3-3"/><path d="M12 3v2"/></svg> ' + BYD.units.dist(odoStart) + '→' + BYD.units.dist(odoEnd) + '</span>'
+            ? '<span class="trip-capsule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 14l3-3"/><path d="M12 3v2"/></svg> ' + BYD.units.dist(odoStart) + '<span class="rtl-flip-arrow">→</span>' + BYD.units.dist(odoEnd) + '</span>'
             : '';
         // Score badge: a trip without score data (recovered, recovery-finalized,
         // or scored from an empty dynamics stream) shows a neutral glyph instead
@@ -3761,7 +3761,7 @@ const TRIPS = {
                 html += '<div class="route-comparison-item" style="cursor:pointer;" onclick="TRIPS.showDetail(' + t.id + ')">';
                 html += '<span class="route-comparison-date">' + date + (isBest ? ' 🏆' : '') + '</span>';
                 html += '<span class="route-comparison-eff">' + (energy > 0 ? energy.toFixed(1) + ' kWh' : '--') + (cost > 0 ? ' · ' + currency + cost.toFixed(0) : '') + '</span>';
-                html += '<span style="color:var(--brand-primary);font-size:12px;">→</span>';
+                html += '<span style="color:var(--brand-primary);font-size:12px;" class="rtl-flip-arrow">→</span>';
                 html += '</div>';
             });
 
