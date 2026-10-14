@@ -1345,6 +1345,10 @@
   "units": {
     "bar": "bar",
     "kpa": "kPa",
-    "psi": "PSI"
+    "psi": "PSI",
+    "minute": "min",
+    "minute_compact": "m",
+    "hour_compact": "h",
+    "second_compact": "s"
   }
 }
