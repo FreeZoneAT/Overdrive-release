@@ -65,7 +65,8 @@
     "key_mapping": "Key Mapping",
     "network": "Network",
     "communicate": "Communicate",
-    "parking": "Parking"
+    "parking": "Parking",
+    "remote_dev_view": "Remote Dev View"
   },
   "parking": {
     "page_title": "Parking",
