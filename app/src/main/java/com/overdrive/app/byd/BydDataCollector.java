@@ -3623,6 +3623,14 @@ public class BydDataCollector {
                 // before the corresponding collector value becomes externally stable.
                 com.overdrive.app.monitor.ChargingDetector.getInstance().updateAccState(isOn);
 
+                // ACC just turned ON: easy-entry's job is done (or never started) — disarm.
+                // Keeps a mid-poll episode from surviving into a drive if ACC comes on
+                // before the seat settles.
+                if (isOn && anyReferenced(com.overdrive.app.automation.condition.BydEvent.EASY_ENTRY)) {
+                    stopEasyEntryPoll();
+                    publishEasyEntry("idle");
+                }
+
                 // ACC just transitioned OFF: also clear the snapshot's enginePowerKw so direct
                 // snapshot consumers cannot retain the last drive's value while parked.
                 if (!isOn) {
@@ -11947,6 +11955,21 @@ public class BydDataCollector {
 
     private void onBodyworkCallback(String method, Object[] args) {
         if (!initialized || isDiLink5DaemonProcess()) return;
+        // The generic channel is handled first and on its own, and returns before any collection.
+        //
+        // registerBodyworkListener subscribes to it for the fob unlock edge only, and the HAL
+        // ignores the id filter and delivers EVERY bodywork event through it — a steady stream
+        // while driving. Falling through to the full refresh below cost a whole round of blocking
+        // HAL getters (six window reads, doors, locks) per event, on the main looper, which is
+        // where the BYD device manager posts these. The app process was ANR-killed 1-2 minutes
+        // into every trip and every ~6.5 minutes after that, 14 of 22 main-thread dumps inside this
+        // path entered via onDataEventChanged (2026-09-23). Before that registration
+        // existed these events never reached here, so returning early restores the old snapshot
+        // behaviour exactly; the typed door/window callbacks still refresh it.
+        if ("onDataEventChanged".equals(method)) {
+            onBodyworkDataEvent(args);
+            return;
+        }
         BydVehicleData current = snapshot.get();
         if (current == null) return;
         BydVehicleData.Builder b = current.toBuilder();
@@ -11967,7 +11990,196 @@ public class BydDataCollector {
             int state = (args[1] instanceof Integer) ? (Integer) args[1] : -1;
             notifyDoorStateListeners(area, state);
         }
+
         notifyLockSnapshotListeners(updated);
+    }
+
+    /**
+     * Unlock-source events. Arrive only on the generic channel (no typed callback exists) and only
+     * because registerBodyworkListener also registers the 2-arg overload. The HAL ignores its
+     * int[] filter and delivers EVERY bodywork event here, so only the mapped id is handled;
+     * everything else is dropped without logging and without touching the HAL. Runs on the main
+     * looper — keep it that cheap.
+     */
+    private void onBodyworkDataEvent(Object[] args) {
+        if (args != null && args.length >= 2) {
+            int eventId = (args[0] instanceof Integer) ? (Integer) args[0] : Integer.MIN_VALUE;
+            if (eventId == BydFeatureIds.BODYWORK_REMOTE_CONTROL_UNLOCK) {
+                int intValue = BydDeviceHelper.getIntValue(args[1]);
+                // Proven on-car (2026-09-03): fires intValue=1 then clears
+                // to a sentinel/0 after ~240ms. Only the transition INTO 1 is a
+                // real fob-button press; the clear-back must never re-arm.
+                boolean isPressEdge = intValue == 1 && lastFobRawIntValue != 1;
+                lastFobRawIntValue = intValue;
+                if (isPressEdge) {
+                    onFobUnlockEvent();
+                }
+            }
+            // BODYWORK_CARD_NFC_KEY_STATE (0x40334013) and BODYWORK_REMOTE_CONTROL_LOCK
+            // are declared in BydFeatureIds but deliberately not handled: the NFC event
+            // fires on both lock and unlock with the card (ambiguous without more logic),
+            // and app/keyless unlocks have no bodywork event at all.
+        }
+    }
+
+    // ==================== UNLOCK SOURCE / EASY ENTRY ====================
+    // Two automation signals so the seat-on-unlock automation is config, not code:
+    // unlockSource (how the car was unlocked) and easyEntry (whether the driver
+    // seat's easy-entry motion has settled). Both self-gated by anyReferenced so
+    // they cost nothing unless an automation actually uses one.
+
+    /** Raw intValue last seen from BODYWORK_REMOTE_CONTROL_UNLOCK, for press-edge detection. */
+    private volatile int lastFobRawIntValue = -1;
+
+    private volatile java.util.concurrent.ScheduledExecutorService easyEntryScheduler;
+    // Timing verified on a BYD Seal (DiLink 3.0): a real easy-entry retract runs about
+    // 1.9 s with no gap between samples above ~95 ms, so three unchanged 200 ms reads
+    // after motion clear it with margin.
+    private static final long EASY_ENTRY_POLL_INTERVAL_MS = 200;
+    /** Consecutive unchanged reads AFTER motion has started before declaring "settled". */
+    private static final int EASY_ENTRY_STATIONARY_SAMPLES = 3;
+    /** Displacement from the pre-motion baseline required to call it real motion, not noise. */
+    private static final double EASY_ENTRY_MOTION_THRESHOLD = 2.0;
+    /**
+     * Extra margin AFTER the stationary-samples threshold, before actually publishing settled.
+     *
+     * <p>Measured on the car with 1500 ms here (2026-10-05):
+     * easy entry stopped at 14:12:43.2 and the seat did not start towards the driver's position
+     * until 48.5. The stationary samples above already confirm the seat has stopped (3 x 200 ms),
+     * so 1.5 s on top was pure wait; 300 ms keeps a small margin for the BYD seat controller to
+     * finish its own easy-entry sequence before a new target is sent.
+     */
+    private static final long EASY_ENTRY_SETTLE_EXTRA_DELAY_MS = 300;
+    /** Disarm quietly if nothing ever settles (e.g. the door was never opened). */
+    private static final long EASY_ENTRY_ARM_WINDOW_MS = 30_000;
+
+    /**
+     * Called from the bodywork listener on a fob-button press edge (see
+     * onBodyworkCallback). Verified on the car: it fires only on a real fob-button
+     * unlock, never on keyless entry. This is the only thing that arms easy entry.
+     * unlockSource is set directly, with no property read needed for this case.
+     */
+    private void onFobUnlockEvent() {
+        boolean referenced =
+                anyReferenced(com.overdrive.app.automation.condition.BydEvent.UNLOCK_SOURCE)
+                || anyReferenced(com.overdrive.app.automation.condition.BydEvent.EASY_ENTRY);
+        if (!referenced) return;
+        publishUnlockSource("fob");
+        armEasyEntryPoll();
+    }
+
+    // unlockSource is only ever published as "fob", and there is no reset to "none" on
+    // lock. None is needed: easyEntry can only be armed by onFobUnlockEvent, so whenever a
+    // rule sees easyEntry reach "settled", unlockSource has just been set to "fob". The
+    // door-lock listener cannot serve as a trigger for other unlock sources — its callback
+    // does not fire on the firmware seen in the field (CameraDaemon polls lock state for
+    // the same reason).
+
+    /**
+     * Arm the easy-entry poll: read {@code BODYWORK_SEAT_HORIZONTAL} at
+     * {@link #EASY_ENTRY_POLL_INTERVAL_MS}, in process (no HTTP), for up to
+     * {@link #EASY_ENTRY_ARM_WINDOW_MS}. Publishes "moving" once the value has
+     * moved more than {@link #EASY_ENTRY_MOTION_THRESHOLD} from the pre-motion
+     * baseline, then "settled" once {@link #EASY_ENTRY_STATIONARY_SAMPLES}
+     * consecutive reads come back unchanged AND a further
+     * {@link #EASY_ENTRY_SETTLE_EXTRA_DELAY_MS} has passed — but only after
+     * motion was observed at least once, so an unlock where the door is never
+     * opened (nobody getting in) stays idle and never fires the automation.
+     */
+    private synchronized void armEasyEntryPoll() {
+        stopEasyEntryPoll(); // restart cleanly on a fresh unlock edge
+        if (bodyworkDevice == null) return;
+        publishEasyEntry("idle");
+        final long armedAt = System.currentTimeMillis();
+        final double[] baseline = {Double.NaN};
+        final double[] lastValue = {Double.NaN};
+        final boolean[] hasMoved = {false};
+        final int[] stationaryCount = {0};
+        easyEntryScheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "EasyEntryPoll");
+            t.setDaemon(true);
+            return t;
+        });
+        easyEntryScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                if (System.currentTimeMillis() - armedAt > EASY_ENTRY_ARM_WINDOW_MS) {
+                    stopEasyEntryPoll();
+                    publishEasyEntry("idle");
+                    return;
+                }
+                Object raw = BydDeviceHelper.callGet(bodyworkDevice,
+                        BydFeatureIds.BODYWORK_SEAT_HORIZONTAL, Double.TYPE);
+                double v = raw != null ? BydDeviceHelper.getDoubleValue(raw) : Double.NaN;
+                if (Double.isNaN(v)) return; // unreadable tick, don't disturb state
+
+                if (Double.isNaN(baseline[0])) {
+                    baseline[0] = v;
+                    lastValue[0] = v;
+                    return; // first sample: establish the pre-motion baseline only
+                }
+
+                if (!hasMoved[0]) {
+                    // Displacement from the FIXED baseline. A per-step compare here would latch
+                    // "moving" on a single unit of read noise.
+                    if (Math.abs(v - baseline[0]) > EASY_ENTRY_MOTION_THRESHOLD) {
+                        hasMoved[0] = true;
+                        lastValue[0] = v;
+                        stationaryCount[0] = 0;
+                        publishEasyEntry("moving");
+                    }
+                    return;
+                }
+
+                // Already moving: track quiet vs changing against the PREVIOUS
+                // sample (exact compare).
+                if (v != lastValue[0]) {
+                    lastValue[0] = v;
+                    stationaryCount[0] = 0;
+                    return;
+                }
+                if (++stationaryCount[0] < EASY_ENTRY_STATIONARY_SAMPLES) return;
+
+                // Quiet for EASY_ENTRY_STATIONARY_SAMPLES ticks. Wait the small extra
+                // margin BEFORE publishing settled, not instead of it. Sleeping on this
+                // dedicated single-thread executor blocks nothing else; must run
+                // before stopEasyEntryPoll(), which self-interrupts this thread.
+                try {
+                    Thread.sleep(EASY_ENTRY_SETTLE_EXTRA_DELAY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                publishEasyEntry("settled");
+                stopEasyEntryPoll();
+            } catch (Throwable t) {
+                logger.debug("Easy-entry poll error: " + t.getMessage());
+            }
+        }, 0, EASY_ENTRY_POLL_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    /** Stop the easy-entry poll if running (idempotent). */
+    private synchronized void stopEasyEntryPoll() {
+        if (easyEntryScheduler != null) {
+            easyEntryScheduler.shutdownNow();
+            easyEntryScheduler = null;
+        }
+    }
+
+    private void publishUnlockSource(String word) {
+        try {
+            com.overdrive.app.automation.Automations.update(
+                    com.overdrive.app.automation.condition.BydEvent.UNLOCK_SOURCE, word);
+        } catch (Throwable t) {
+            logger.debug("publishUnlockSource failed: " + t.getMessage());
+        }
+    }
+
+    private void publishEasyEntry(String word) {
+        try {
+            com.overdrive.app.automation.Automations.update(
+                    com.overdrive.app.automation.condition.BydEvent.EASY_ENTRY, word);
+        } catch (Throwable t) {
+            logger.debug("publishEasyEntry failed: " + t.getMessage());
+        }
     }
 
     /**
