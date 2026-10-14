@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Non-translatable URL/command resources mirrored from values/ for
+         values-he key parity (same literals; locale folder is explicit). -->
+    <string name="community_discord_url" translatable="false">https://discord.gg/PZutk9fg4h</string>
+    <string name="community_github_issues_url" translatable="false">https://github.com/yash-srivastava/Overdrive-release/issues</string>
+    <string name="community_whatsapp_url" translatable="false">https://chat.whatsapp.com/HChmriCWgr9KwAtE6OEkiM</string>
+    <string name="settings_about_license_url" translatable="false">https://github.com/yash-srivastava/Overdrive-release/blob/main/LICENSE</string>
+    <string name="settings_about_source_url" translatable="false">https://github.com/yash-srivastava/Overdrive-release</string>
+    <string name="settings_about_star_url" translatable="false">https://github.com/yash-srivastava/Overdrive-release</string>
+    <string name="settings_about_support_kofi_url" translatable="false">https://ko-fi.com/E1E71XALHX</string>
+    <string name="settings_security_recovery_command" translatable="false">adb shell touch /data/local/tmp/.overdrive_pin_reset</string>
+
+    <!-- Overlay quick-action chip labels: short Hebrew marks on the status pill. -->
+    <string name="overlay_replay_label">קליפ</string>
+    <string name="overlay_mode_off_label">כב׳</string>
+    <string name="overlay_mode_continuous_label">רצ׳</string>
+    <string name="overlay_mode_drive_label">נס׳</string>
+    <string name="overlay_mode_proximity_label">קרב׳</string>
+</resources>
