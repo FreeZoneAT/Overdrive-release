@@ -1392,7 +1392,7 @@
     <string name="network_warn_body">במסך הרכב קיים רכיב אלחוטי יחיד, ולכן הוא אינו יכול לשמש כנקודה חמה ולהישאר מחובר לרשת Wi-Fi בו-זמנית. כאשר הנקודה החמה מופעלת, הרכב מתנתק מה-Wi-Fi ומשתמש בנתונים הסלולריים של כרטיס ה-SIM המובנה עבורו ועבור כל המכשירים המחוברים. חיבור ה-Wi-Fi ישוב לפעול עם כיבוי הנקודה החמה.</string>
     <string name="network_warn_continue">הפעל נקודה חמה</string>
     <string name="network_warn_cancel">ביטול</string>
-    <!-- Closed-repository features added after the upstream Hebrew pass. -←
+    <!-- Closed-repository features added after the upstream Hebrew pass. -->
     <string name="action_create_evidence_pack">יצירת חבילת ראיות</string>
     <string name="action_share_evidence_pack">שיתוף חבילת ראיות</string>
     <string name="tailscale_enable_https">הצגת ממשק האינטרנט דרך HTTPS</string>
