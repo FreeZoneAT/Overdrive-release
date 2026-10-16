@@ -154,6 +154,35 @@ class DaemonLauncher(
         /** Newline-terminated form for use inside `buildString` script bodies. */
         fun psAwkKillLine(pattern: String): String = psAwkKill(pattern) + "\n"
 
+        const val CLOUDFLARED_STOPPED = "CLOUDFLARED_STOPPED"
+        const val CLOUDFLARED_STILL_RUNNING = "CLOUDFLARED_STILL_RUNNING"
+
+        /**
+         * One-line shell payload that SIGKILLs cloudflared and prints exactly one of
+         * [CLOUDFLARED_STOPPED] / [CLOUDFLARED_STILL_RUNNING]. Callers must treat output with
+         * neither marker as "not verified", never as stopped.
+         *
+         * - Kill by PID ([psAwkKill]): the binary runs as `${nativeLibraryDir}/libcloudflared.so`
+         *   and toybox `killall` matches exact process names only, so `killall -9 cloudflared`
+         *   matched nothing. The patterns are the binary itself (`libcloudflared.so`, or
+         *   `/cloudflared ` for older installs that run `/data/local/tmp/cloudflared`) — NOT a
+         *   bare "cloudflared", which would also SIGKILL concurrent shells that merely mention
+         *   `cloudflared.disabled` / `cloudflared.log` (health-check sentinel probe, URL grep,
+         *   Telegram log tail). Each pattern also catches the `sh -c` launch wrapper.
+         * - Self-exclusion: the `while` subshell is a fork of this `sh -c` (same argv) but is
+         *   dropped by `grep -v grep` because this payload's argv contains "grep".
+         * - Verify by process NAME (this shell is `sh`, never a match) and skip zombie rows: a
+         *   SIGKILLed process can be listed as `Z` until reaped (same rule as
+         *   [processAliveInSnapshot]).
+         */
+        @JvmStatic
+        fun killCloudflaredAndVerify(): String =
+            psAwkKill("libcloudflared.so") + "; " +
+            psAwkKill("/cloudflared ") + "; " +
+            "killall -9 cloudflared libcloudflared.so 2>/dev/null; sleep 0.3; " +
+            "if ps -A -o S,NAME | grep -v '^ *Z ' | grep -qF cloudflared; " +
+            "then echo $CLOUDFLARED_STILL_RUNNING; else echo $CLOUDFLARED_STOPPED; fi"
+
         /**
          * Build the shell lines for a backgrounded log-size poller that bounds
          * the daemon's stdout-redirect log (`$LOG_FILE`) *while the daemon is

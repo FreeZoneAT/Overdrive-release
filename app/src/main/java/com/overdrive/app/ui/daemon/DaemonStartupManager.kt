@@ -1428,6 +1428,17 @@ class DaemonStartupManager(
                     log.info(TAG, "HealthCheck: relaunching WireGuard via boot-path fallback")
                     startWireGuardOnBoot()
                 }
+                DaemonType.CLOUDFLARED_TUNNEL -> {
+                    // Boot-path cloudflared recovery (no ViewModel), same launch the boot
+                    // start uses. Without it a cloudflared that dies while the app has no
+                    // Activity stays dead: every tick logged "no ADB fallback".
+                    log.info(TAG, "HealthCheck: relaunching Cloudflared via boot-path fallback")
+                    adbLauncher.launchTunnel(object : AdbDaemonLauncher.TunnelCallback {
+                        override fun onLog(message: String) { log.debug(TAG, "[Cloudflared HealthCheck] $message") }
+                        override fun onTunnelUrl(url: String) { log.info(TAG, "HealthCheck: Cloudflared URL: $url") }
+                        override fun onError(error: String) { log.error(TAG, "HealthCheck: Cloudflared restart failed: $error") }
+                    })
+                }
                 else -> {
                     log.warn(TAG, "Health check: no ADB fallback for ${type.displayName}")
                 }

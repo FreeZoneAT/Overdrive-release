@@ -62,17 +62,36 @@ object CloudflaredPaidConfig {
         val token = getToken()
 
         return if (isPaid && token.isNotEmpty()) {
-            // Paid named tunnel. Keep the same resilience flags as the free
-            // path so a paid tunnel survives the ~24s ACC-OFF data-interface
-            // blackout instead of panicking/restarting faster. Force HTTP/2 over
-            // TCP like the free path: vehicle cellular links can drop UDP, and
-            // a QUIC-first tunnel was seen stuck without reconnecting after a
-            // network switch.
-            "tunnel --protocol http2 --no-autoupdate --retries 20 --grace-period 45s run --token $token"
+            // Paid named tunnel: same flags as the free path (see
+            // RECONNECT_BACKOFF_CAP_EXPONENT). Force HTTP/2 over TCP like the
+            // free path: vehicle cellular links can drop UDP, and a QUIC-first
+            // tunnel was seen stuck without reconnecting after a network switch.
+            "tunnel --protocol http2 --no-autoupdate --retries $RECONNECT_BACKOFF_CAP_EXPONENT --grace-period 45s run --token $token"
         } else {
-            "tunnel --url http://127.0.0.1:8080 --edge-ip-version 4 --protocol http2 --no-autoupdate --retries 20 --grace-period 45s"
+            "tunnel --url http://127.0.0.1:8080 --edge-ip-version 4 --protocol http2 --no-autoupdate --retries $RECONNECT_BACKOFF_CAP_EXPONENT --grace-period 45s"
         }
     }
+
+    /**
+     * Value for cloudflared's `--retries`. Despite the name it does NOT limit how many times
+     * cloudflared reconnects — it retries forever (every backoff handler is built with
+     * `retryForever = true`). It caps the exponential backoff instead: the wait before a
+     * reconnect is at most 2^N × base, for two loops:
+     *  - per connection ("Retrying connection in up to …"), base 1 s;
+     *  - the supervisor restart after "Connection terminated", base 10 s, which logs NOTHING
+     *    while it waits.
+     *
+     * At the old value 20 those caps were ~12 days and ~121 days. After a run of failed
+     * reconnects the supervisor slept silently for hours with the network already back (field
+     * incident, Sealion 6, OD 55.3: tunnel dead from 13:25 until killed by hand at 15:00, while a
+     * fresh process registered in ~5 s). 5 is cloudflared's own default: caps of 32 s and ~5 min,
+     * so a tunnel reconnects within ~5 min of the network returning. Lower values only shorten
+     * that further at the cost of more reconnect attempts while offline.
+     *
+     * (`--grace-period` is unrelated: it is how long cloudflared drains in-flight requests after
+     * SIGTERM, not a reconnect setting.)
+     */
+    const val RECONNECT_BACKOFF_CAP_EXPONENT = 5
 
     @JvmStatic
     fun isConfigured(): Boolean {
