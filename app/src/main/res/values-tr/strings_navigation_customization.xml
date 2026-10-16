@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_navigation_title">Gezinme menüsü</string>
+    <string name="settings_navigation_subtitle">Sol gezinme menüsünde sabit kalacak isteğe bağlı bölümleri seçin.</string>
+    <string name="settings_navigation_fixed_hint">Kontrol paneli, Ayarlar ve Hakkında her zaman kullanılabilir.</string>
+    <string name="settings_navigation_reset">Varsayılana sıfırla</string>
+    <string name="settings_navigation_reset_done">Gezinme menüsü varsayılana döndürüldü</string>
+    <string name="settings_navigation_shown">gösteriliyor</string>
+    <string name="settings_navigation_hidden">gizli</string>
+    <string name="settings_navigation_option_state">%1$s, gezinmede %2$s</string>
+</resources>
