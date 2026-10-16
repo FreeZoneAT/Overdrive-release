@@ -40,9 +40,9 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Building the Project
 
 ```bash
-# Clone your fork
-git clone https://github.com/yash-srivastava/Overdrive-release.git
-cd overdrive
+# Clone your fork (replace <your-username>)
+git clone https://github.com/<your-username>/Overdrive-release.git
+cd Overdrive-release
 
 # Build the project
 ./gradlew assembleDebug
@@ -51,9 +51,31 @@ cd overdrive
 ./gradlew test
 ```
 
+### Windows notes
+
+Several unit tests read source and web files and assert on their text, and one web folder is a git symlink.
+Git for Windows defaults break both, so clone with these settings:
+
+```bash
+git clone -c core.autocrlf=false -c core.symlinks=true https://github.com/<your-username>/Overdrive-release.git
+```
+
+- **Line endings:** with the default `core.autocrlf=true`, every file is checked out with CRLF line endings
+  and many tests fail because they no longer find the text they look for.
+- **Symlinks:** `app/src/main/assets/web/local/shared` is a symlink to `../shared`. Creating symlinks on
+  Windows needs Developer Mode (or an elevated shell). Without it the link becomes a plain text file and
+  the tests that read through it fail.
+- **JDK:** the JDK bundled with Android Studio works for the build.
+
 ### Running on a Device
 
 The app is designed for BYD vehicles with specific hardware APIs. For general development and UI work, the Android emulator works fine. Hardware-specific features (camera, vehicle data, surveillance) require a compatible device.
+
+## How the App Is Structured
+
+OverDrive runs as two cooperating processes. The camera, recording, streaming and the HTTP server on port 8080 run in a
+background daemon started through `app_process`; the UI app is a separate process. They talk over loopback HTTP and a
+shared configuration file, so code under `server/` and `daemon/` runs in the daemon, not in the UI process.
 
 ## Project Structure
 
@@ -61,25 +83,64 @@ The app is designed for BYD vehicles with specific hardware APIs. For general de
 app/src/main/
 ├── java/com/overdrive/app/
 │   ├── abrp/              # ABRP telemetry integration
+│   ├── ai/                # Object detection
+│   ├── auth/              # Device token, JWT sessions & PIN lock
+│   ├── automation/        # Automation rules, conditions & actions
+│   ├── battery/           # Battery chemistry & charging-session quality
+│   ├── bridge/            # Vehicle & performance data bridges
 │   ├── byd/               # BYD vehicle API integration
 │   ├── camera/            # Camera management (AVM, panoramic)
+│   ├── charging/          # Charging sessions, tariffs & API
+│   ├── client/            # Clients for the camera daemon
+│   ├── communication/     # Remote voice & cabin audio communication
+│   ├── community/         # Community automation catalogue
+│   ├── config/            # App & daemon configuration, backup
 │   ├── daemon/            # Background services & Telegram bot
+│   ├── genai/             # AI assistant, insights & routines
+│   ├── geo/               # Geocoding & location snapshots
+│   ├── launcher/          # Daemon & app launchers (ADB, cluster cast)
 │   ├── logging/           # Logging configuration
 │   ├── monitor/           # Vehicle, battery & network monitoring
 │   ├── mqtt/              # MQTT messaging
+│   ├── navmap/            # Navigation map & cluster projection
+│   ├── network/           # Hotspot & cellular relay
+│   ├── notifications/     # Notification bus & sinks (push, Telegram, history)
+│   ├── onboarding/        # First-run tours & setup coaching
+│   ├── overlay/           # On-screen status & message overlays
+│   ├── parking/           # Parking intelligence
+│   ├── power/             # ACC-off & parked power handling
+│   ├── proximity/         # Proximity (parking radar) recording trigger
+│   ├── receiver/          # Boot & screen broadcast receivers
 │   ├── recording/         # Recording mode management
+│   ├── remote/            # Remote developer view
+│   ├── roadsense/         # Road hazard detection
 │   ├── server/            # HTTP/TCP/IPC server & API handlers
+│   ├── services/          # Android services (keep-alive, auto-start, cabin audio)
+│   ├── shell/             # Hidden-API bypass & shell permissions
 │   ├── storage/           # Storage management
 │   ├── streaming/         # GPU-accelerated streaming
 │   ├── surveillance/      # Surveillance engine & motion detection
+│   ├── telegram/          # Telegram bot interfaces & messages
 │   ├── telemetry/         # Telemetry overlay rendering
+│   ├── telenav/           # Telenav navigation integration
 │   ├── trips/             # Trip detection, scoring & analytics
 │   ├── ui/                # Activities, fragments & UI controllers
-│   └── updater/           # In-app update system
+│   ├── updater/           # In-app update system
+│   ├── util/              # Shared helpers (HTTP client, storage paths)
+│   └── wireguard/         # WireGuard tunnel configuration
 ├── cpp/surveillance/       # Native C++ (motion pipeline, texture tracking)
 ├── assets/web/             # Web UI (HTML/JS for local dashboards)
 └── res/                    # Android resources (layouts, drawables)
 ```
+
+The list covers the main packages; a handful of small ones are omitted.
+
+Other top-level locations:
+
+- `app/src/test/java/com/overdrive/app/`: unit tests, laid out like the main packages. Most test pure static helpers;
+  some "contract" tests read source or web files and assert on their text.
+- `tools/`: scripts that build the bundled `libtailscale` and `libwireguard` libraries.
+- `stubs-bydauto/`: stub classes of the BYD vehicle SDK so the project compiles without the real SDK.
 
 ## How to Contribute
 
