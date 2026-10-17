@@ -324,8 +324,14 @@ class DaemonsViewModel(app: Application) : AndroidViewModel(app) {
                 updateState(type, status, message)
             }
             override fun onError(error: String) {
-                // Ignore errors for silent stop
-                updateState(type, DaemonStatus.STOPPED, "Stopped")
+                // "Silent" means no prefs/STOPPING UI, not "pretend it worked": a failed stop
+                // used to show STOPPED while the other tunnel kept running beside the new one.
+                LogManager.getInstance().warn("Daemons",
+                    "Silent stop of ${type.displayName} failed (mutual exclusion): $error")
+                updateState(type, DaemonStatus.ERROR, appStr(R.string.daemon_status_stop_failed, error))
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    refreshDaemonStatus(type)
+                }, 1000)
             }
         })
     }

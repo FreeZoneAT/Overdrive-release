@@ -173,7 +173,10 @@ class TunnelLauncher(
                                 stopTunnel(object : TunnelCallback {
                                     override fun onLog(message: String) {}
                                     override fun onTunnelUrl(url: String) { launchCloudflaredInternal(callback) }
-                                    override fun onError(error: String) { launchCloudflaredInternal(callback) }
+                                    // Don't launch a second cloudflared next to one that is still running.
+                                    override fun onError(error: String) {
+                                        callback.onError("Could not stop the free tunnel before switching to paid: $error")
+                                    }
                                 })
                                 return@getTunnelUrl
                             }
@@ -328,9 +331,8 @@ class TunnelLauncher(
                 callback.onLog("Direct connection (no proxy)...")
             }
 
-// FIX: Removed invalid flags. Added 'retries' and 'grace-period'.
-// --grace-period 45s: Waits 45s before panicking (Covers the 24s blackout)
-// --retries 20: Keeps trying to reconnect for a long time
+            // Flags (incl. --retries, which caps the reconnect backoff rather than
+            // limiting attempts) are documented in CloudflaredPaidConfig.
             append("${context.applicationInfo.nativeLibraryDir}/libcloudflared.so ${com.overdrive.app.config.CloudflaredPaidConfig.getArgs()}")
             append("' > $CLOUDFLARED_LOG 2>&1 &")
         }
@@ -435,21 +437,34 @@ class TunnelLauncher(
         logManager.info(TAG, "Stopping tunnel...")
         callback.onLog("Stopping tunnel...")
         
-        // Simple approach - just kill cloudflared and consider it done
+        // Kill + verify (see DaemonLauncher.killCloudflaredAndVerify for why it kills by PID).
+        // Only an explicit STOPPED marker counts as stopped.
         adbShellExecutor.execute(
-            command = "killall -9 cloudflared 2>/dev/null; echo done",
+            command = DaemonLauncher.killCloudflaredAndVerify(),
             callback = object : AdbShellExecutor.ShellCallback {
                 override fun onSuccess(output: String) {
-                    logManager.info(TAG, "Tunnel stopped")
-                    callback.onLog("Tunnel stopped")
-                    callback.onTunnelUrl("")
+                    when {
+                        output.contains(DaemonLauncher.CLOUDFLARED_STILL_RUNNING) -> {
+                            logManager.error(TAG, "Tunnel stop failed: cloudflared still running after SIGKILL")
+                            callback.onError("cloudflared is still running after kill")
+                        }
+                        output.contains(DaemonLauncher.CLOUDFLARED_STOPPED) -> {
+                            logManager.info(TAG, "Tunnel stopped")
+                            callback.onLog("Tunnel stopped")
+                            callback.onTunnelUrl("")
+                        }
+                        else -> {
+                            logManager.error(TAG, "Tunnel stop not verified: no marker in output '${output.take(200)}'")
+                            callback.onError("Could not verify that the tunnel stopped")
+                        }
+                    }
                 }
-                
+
                 override fun onError(error: String) {
-                    // killall returns error if no process - that's fine
-                    logManager.info(TAG, "Tunnel stopped")
-                    callback.onLog("Tunnel stopped")
-                    callback.onTunnelUrl("")
+                    // The stop command itself failed (ADB transport), so we don't know
+                    // whether cloudflared is still running — don't report it as stopped.
+                    logManager.error(TAG, "Tunnel stop failed: $error")
+                    callback.onError("Failed to stop tunnel: $error")
                 }
             }
         )

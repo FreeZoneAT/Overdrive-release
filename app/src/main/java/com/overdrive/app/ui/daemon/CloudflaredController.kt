@@ -75,12 +75,12 @@ class CloudflaredController(
             }
             
             override fun onError(error: String) {
-                _tunnelUrl.postValue(null)
+                // Stop failed: the tunnel may still be up, so keep showing its URL.
                 callback.onError(error)
             }
         })
     }
-    
+
     override fun isRunning(callback: (Boolean) -> Unit) {
         adbLauncher.isTunnelRunning(callback)
     }
