@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recording_library_loading">Kayıtlar yükleniyor</string>
+    <string name="recording_library_refreshing">Kayıtlar yenileniyor</string>
+    <string name="recording_library_loading_more">Daha fazla kayıt yükleniyor</string>
+    <string name="recording_library_page_error">Daha fazla kayıt yüklenemedi.</string>
+    <string name="recording_library_page_unavailable">Daha fazla kayıt geçici olarak kullanılamıyor.</string>
+    <string name="recording_library_refresh_error">Yenilenemedi. Daha önce yüklenen kayıtlar gösteriliyor.</string>
+    <string name="recording_library_fatal_title">Kayıtlar açılamadı</string>
+    <string name="recording_library_fatal_body">Kayıt hizmetini ve depolamayı kontrol edip yeniden deneyin.</string>
+    <string name="recording_library_select">Kayıtları seç</string>
+    <string name="recording_library_open_filters">Kayıtları filtrele</string>
+    <string name="recording_library_clear_search">Yer aramasını temizle</string>
+    <string name="recording_preview_details">Kayıt ayrıntıları</string>
+    <string name="cd_expand_recording_details">Kayıt ayrıntılarını göster</string>
+    <string name="cd_collapse_recording_details">Kayıt ayrıntılarını gizle</string>
+    <string name="recording_item_description">%1$s, %2$s, %3$s. Kaydı aç.</string>
+    <string name="recording_item_selection_description">%1$s, %2$s, %3$s. %4$s</string>
+    <string name="recording_item_selected_action">Seçildi. Seçimi kaldırmak için iki kez dokunun.</string>
+    <string name="recording_item_not_selected_action">Seçilmedi. Seçmek için iki kez dokunun.</string>
+    <string name="recording_item_select">Seç: %1$s</string>
+    <string name="recording_item_deselect">Seçimi kaldır: %1$s</string>
+    <string name="cd_pause">Duraklat</string>
+    <string name="cd_player_unmute">Sesi aç</string>
+    <string name="cd_player_mute_audio">Sesi kapat</string>
+    <string name="video_player_buffering">Video yükleniyor</string>
+    <string name="video_player_error_title">Bu kayıt oynatılamıyor</string>
+    <string name="video_player_error_body">Dosya kullanılamıyor olabilir veya depolama cihazının bağlantısı kesilmiş olabilir.</string>
+    <string name="video_player_retry">Yeniden dene</string>
+    <string name="video_player_next">Sonraki kayıt</string>
+    <string name="video_timeline_empty">Olay zaman çizelgesi. Algılanan olay yok.</string>
+    <string name="video_timeline_events">Olay zaman çizelgesi. %1$d olay algılandı. En yakın olaya gitmek için dokunun.</string>
+    <string name="video_timeline_selected">%1$s olayı, %2$s</string>
+</resources>

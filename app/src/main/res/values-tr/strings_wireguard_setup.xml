@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wgsetup_title">WireGuard kurulumu</string>
+    <string name="wgsetup_explainer">Aracı WireGuard üzerinden ev ağınıza bağlar. AllowedIPs içindeki adreslere (örneğin Home Assistant broker\'ınız) tünel üzerinden erişilir; diğer tüm trafik normal yolundan gitmeye devam eder. Yönlendiricinizin dışa aktardığı eş (istemci) yapılandırmasını kullanın (örneğin OPNsense, Fritz!Box veya wg-easy).</string>
+    <string name="wgsetup_status_loading">Durum kontrol ediliyor…</string>
+    <string name="wgsetup_status_none">Henüz yapılandırma yok</string>
+    <string name="wgsetup_status_stopped">Yapılandırıldı, tünel çalışmıyor. Daemon\'lar listesinden açın.</string>
+    <string name="wgsetup_status_connected">Bağlandı: %1$s</string>
+    <string name="wgsetup_status_connecting">Bağlanıyor: %1$s…</string>
+    <string name="wgsetup_status_reloading">Yeni yapılandırma uygulanıyor…</string>
+    <string name="wgsetup_status_error">Hata: %1$s</string>
+    <string name="wgsetup_status_unavailable">Durum alınamıyor, daemon\'a ulaşılamıyor</string>
+    <string name="wgsetup_handshake_seconds">Son el sıkışma %1$d sn önce</string>
+    <string name="wgsetup_handshake_minutes">Son el sıkışma %1$d dk önce</string>
+    <string name="wgsetup_handshake_hours">Son el sıkışma %1$d sa önce</string>
+    <string name="wgsetup_handshake_none">Henüz el sıkışma yok</string>
+    <string name="wgsetup_detail_address">Tünel adresi: %1$s</string>
+    <string name="wgsetup_detail_routes">Rotalar: %1$s</string>
+    <string name="wgsetup_expose">Kontrol paneline WireGuard üzerinden erişilebilir</string>
+    <string name="wgsetup_expose_warning">Aracın tünel adresine ulaşabilen her eş giriş sayfasını açabilir. Erişimi WireGuard sunucusunda kısıtlayın.</string>
+    <string name="wgsetup_expose_url">Kontrol paneli: %1$s</string>
+    <string name="wgsetup_expose_failed">Kontrol paneli ayarı değiştirilemedi</string>
+    <string name="wgsetup_config_hint">WireGuard yapılandırmanızı yapıştırın ([Interface] … [Peer] …)</string>
+    <string name="wgsetup_key_note">Özel anahtar araçta kalır ve bir daha gösterilmez. Yeni bir yapılandırma kaydedildiğinde eskisinin yerini alır.</string>
+    <string name="wgsetup_paste">Yapıştır</string>
+    <string name="wgsetup_import">Dosyadan içe aktar</string>
+    <string name="wgsetup_phone">Telefondan kur</string>
+    <string name="wgsetup_delete">Yapılandırmayı sil</string>
+    <string name="wgsetup_clipboard_empty">Pano boş</string>
+    <string name="wgsetup_import_failed">Dosya okunamadı</string>
+    <string name="wgsetup_import_too_large">Dosya çok büyük</string>
+    <string name="wgsetup_import_no_qr">Görselde QR kod bulunamadı</string>
+    <string name="wgsetup_imported">İçe aktarıldı. Metni kontrol edip Kaydet\'e dokunun.</string>
+    <string name="wgsetup_phone_title">Bunu telefonunuzda açın</string>
+    <string name="wgsetup_phone_steps">Kodu tarayın, oturum açın, ardından yönlendiricinizin dışa aktardığı yapılandırmayı yükleyin veya yapıştırın. Telefonun araca erişebilmesi gerekir (aynı Wi-Fi ya da erişim noktası veya etkin bir tünel üzerinden).</string>
+    <string name="wgsetup_phone_lan_note">Bunu yalnızca kendi Wi-Fi ağınızda veya aracın erişim noktasında açın.</string>
+    <string name="wgsetup_phone_no_url">Kullanılabilir adres yok. Önce aracı Wi-Fi\'ye bağlayın, erişim noktasını açın veya bir tünel başlatın.</string>
+    <string name="wgsetup_empty">Önce bir yapılandırma yapıştırın veya içe aktarın</string>
+    <string name="wgsetup_saved">WireGuard yapılandırması kaydedildi</string>
+    <string name="wgsetup_delete_title">WireGuard yapılandırması silinsin mi?</string>
+    <string name="wgsetup_delete_message">Kayıtlı yapılandırma, özel anahtarıyla birlikte silinir ve tünel durdurulur.</string>
+    <string name="wgsetup_deleted">WireGuard yapılandırması silindi</string>
+    <string name="wgsetup_delete_failed">Yapılandırma silinemedi</string>
+</resources>
