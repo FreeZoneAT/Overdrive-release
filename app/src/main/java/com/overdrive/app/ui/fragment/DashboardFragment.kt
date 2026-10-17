@@ -168,11 +168,13 @@ class DashboardFragment : Fragment() {
     private var viewGeneration: Int = 0
     private var dashboardResumed: Boolean = false
     private var recordingStatsRetryCount: Int = 0
+    private var vehicleTileRetryCount: Int = 0
 
     private var insightsProvider: DashboardInsightProvider? = null
     private var firstVisitCount: Int = -1
     private val statusRefreshRunnable = Runnable { refreshVehicleStatus(showLoading = false) }
     private val recordingStatsRefreshRunnable = Runnable { refreshMetricsTiles() }
+    private val vehicleTileRefreshRunnable = Runnable { refreshVehicleTile() }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -223,6 +225,7 @@ class DashboardFragment : Fragment() {
         refreshVehicleStatus(showLoading = true)
         refreshMetricsTiles()
         recordingViewModel.updateStorageInfo()
+        vehicleTileRetryCount = 0
         refreshVehicleTile()
         rebuildInsightsAsync()
         loadAuthState()
@@ -232,6 +235,7 @@ class DashboardFragment : Fragment() {
         dashboardResumed = false
         mainHandler.removeCallbacks(statusRefreshRunnable)
         mainHandler.removeCallbacks(recordingStatsRefreshRunnable)
+        mainHandler.removeCallbacks(vehicleTileRefreshRunnable)
         super.onPause()
     }
 
@@ -240,6 +244,7 @@ class DashboardFragment : Fragment() {
         viewGeneration += 1
         mainHandler.removeCallbacks(statusRefreshRunnable)
         mainHandler.removeCallbacks(recordingStatsRefreshRunnable)
+        mainHandler.removeCallbacks(vehicleTileRefreshRunnable)
         appToast?.cancel()
         appToast = null
         skeleton?.cancel()
@@ -1406,9 +1411,10 @@ class DashboardFragment : Fragment() {
      * Read /api/performance/soh/nominal + /api/models/selected and render
      * "82.5 kWh · BYD Seal" or "Tap to set" if no nominal yet.
      *
-     * Both calls run on a worker thread (HTTP). Defaults survive a daemon
-     * boot race — the tile flashes "Tap to set" until the first successful
-     * round-trip lands.
+     * Both calls run on a worker thread (HTTP). While the daemon is still
+     * starting (always the case right after an app update) the nominal call
+     * fails or answers 503; the tile then keeps its current text and asks
+     * again instead of showing "Tap to set" until the app is reopened.
      */
     private fun refreshVehicleTile() {
         if (metricVehicleValue == null) return
@@ -1417,11 +1423,13 @@ class DashboardFragment : Fragment() {
             .also { metricsExecutor = it }
         executor.execute {
             var nominalKwh = 0.0
+            var nominalKnown = false
             var modelId: String? = null
             try {
                 val conn = com.overdrive.app.util.DaemonHttpClient.open(
                     "/api/performance/soh/nominal", "GET", 2000, 3000)
                 if (conn.responseCode == 200) {
+                    nominalKnown = true
                     val body = conn.inputStream.bufferedReader().use { it.readText() }
                     val json = org.json.JSONObject(body)
                     if (!json.isNull("nominalKwh")) {
@@ -1453,6 +1461,18 @@ class DashboardFragment : Fragment() {
             mainHandler.post {
                 if (!isAdded || view == null || generation != viewGeneration) return@post
                 val tile = metricVehicleValue ?: return@post
+                mainHandler.removeCallbacks(vehicleTileRefreshRunnable)
+                if (!nominalKnown && dashboardResumed &&
+                    vehicleTileRetryCount < MAX_VEHICLE_TILE_RETRIES
+                ) {
+                    vehicleTileRetryCount += 1
+                    mainHandler.postDelayed(
+                        vehicleTileRefreshRunnable,
+                        VEHICLE_TILE_RETRY_MS * vehicleTileRetryCount,
+                    )
+                    return@post
+                }
+                vehicleTileRetryCount = 0
                 if (nominalKwh > 0) {
                     tile.text = if (modelId != null) {
                         getString(R.string.dashboard_vehicle_summary, nominalKwh, modelDisplayName(modelId))
@@ -1961,6 +1981,9 @@ class DashboardFragment : Fragment() {
         private const val STATUS_REFRESH_MS = 15_000L
         private const val RECORDING_STATS_RETRY_MS = 1_500L
         private const val MAX_RECORDING_STATS_RETRIES = 3
+        // Linear backoff, ~110 s in total: covers a cold daemon start after an update.
+        private const val VEHICLE_TILE_RETRY_MS = 2_000L
+        private const val MAX_VEHICLE_TILE_RETRIES = 10
         private const val STATUS_CONNECT_TIMEOUT_MS = 2_000
         private const val STATUS_READ_TIMEOUT_MS = 4_000
         private const val RANGE_CONNECT_TIMEOUT_MS = 1_000

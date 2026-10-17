@@ -891,6 +891,39 @@ public class PerformanceApiHandler {
     }
 
     /**
+     * Body for GET /api/performance/soh/nominal, or null while it is not known yet.
+     *
+     * The HTTP server starts before CameraDaemon attaches the SOH estimator to
+     * SocHistoryDatabase (initVehicleDataMonitor), so for the first seconds after
+     * a daemon start (every app update) the estimator is missing. Reporting
+     * "unset" then made the dashboard show the vehicle as unconfigured until the
+     * app was reopened. Until the estimator is ready, answer the user-set value
+     * straight from config; without one the value is still unknown (auto
+     * detection may fill it in), so return null.
+     */
+    static JSONObject nominalResponse(
+            com.overdrive.app.abrp.SohEstimator sohEst,
+            java.util.concurrent.Callable<Double> userNominalKwh) throws Exception {
+        JSONObject response = new JSONObject();
+        if (sohEst != null && sohEst.isInitializationReady()) {
+            double kwh = sohEst.getNominalCapacityKwh();
+            response.put("nominalKwh", kwh > 0 ? kwh : JSONObject.NULL);
+            response.put("nominalSource", sohEst.getNominalSource());
+            return response;
+        }
+        double userKwh;
+        try {
+            userKwh = userNominalKwh.call();
+        } catch (Exception e) {
+            return null; // config briefly unreadable during early boot
+        }
+        if (userKwh <= 0) return null;
+        response.put("nominalKwh", userKwh);
+        response.put("nominalSource", "user");
+        return response;
+    }
+
+    /**
      * GET /api/performance/soh/nominal - Returns current nominal kWh, source.
      */
     private static boolean handleSohGetNominal(OutputStream out) throws Exception {
@@ -898,14 +931,13 @@ public class PerformanceApiHandler {
             SocHistoryDatabase socDb = SocHistoryDatabase.getInstance();
             com.overdrive.app.abrp.SohEstimator sohEst = socDb != null ? socDb.getSohEstimator() : null;
 
-            JSONObject response = new JSONObject();
-            if (sohEst != null) {
-                double kwh = sohEst.getNominalCapacityKwh();
-                response.put("nominalKwh", kwh > 0 ? kwh : JSONObject.NULL);
-                response.put("nominalSource", sohEst.getNominalSource());
-            } else {
-                response.put("nominalKwh", JSONObject.NULL);
-                response.put("nominalSource", "unset");
+            JSONObject response = nominalResponse(
+                    sohEst, com.overdrive.app.config.UnifiedConfigManager::readVehicleNominalKwhStrict);
+            if (response == null) {
+                // Not "unset": the answer is unknown until the estimator is up.
+                // Clients retry instead of showing the vehicle as unconfigured.
+                HttpResponse.sendError(out, 503, "Service Unavailable");
+                return true;
             }
             HttpResponse.sendJson(out, response.toString());
             return true;
